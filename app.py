@@ -27,9 +27,9 @@ from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv())
 # openai.api_key = "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" 
 global openai_api_key
-openai_api_key = "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"   
+openai_api_key = "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"   
 
-os.environ['OPENAI_API_KEY'] = "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"
+os.environ['OPENAI_API_KEY'] = "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"
 
 
 def get_completion(prompt, model="gpt-3.5-turbo"):

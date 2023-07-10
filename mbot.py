@@ -39,12 +39,12 @@ import tempfile
 import warnings
 warnings.filterwarnings('ignore')
 
-# from dotenv import load_dotenv, find_dotenv
-# _ = load_dotenv(find_dotenv())
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv())
 # openai.api_key = "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" 
 global openai_api_key
-openai_api_key = "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"   
-os.environ['OPENAI_API_KEY'] = "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"
+openai_api_key = "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"   
+os.environ['OPENAI_API_KEY'] = "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"
 
 @st.cache_data
 def parse_pdf (file: io.BytesIO)-> List[str]:
@@ -80,7 +80,7 @@ def text_to_docs(text: str) -> List [Document]:
     doc_chunks = []
     for doc in page_docs:
         text_splitter = RecursiveCharacterTextSplitter( 
-            chunk_size=4000, 
+            chunk_size=2500, 
             separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""],
             chunk_overlap=0,
         )
@@ -106,7 +106,8 @@ def tool(index):
             name="State of Union QA System",
             func=qa.run,
             description="Useful for when you need to answer questions about the aspects asked.\
-            Input may be a partial or fully formed question."
+            Input may be a partial or fully formed question,\
+                it also can be about some things else, use the chat history to reply the questions"
         )
     ]
     return tools,qa
@@ -148,11 +149,12 @@ def process(kind, tools, qa):
     agent_chain = AgentExecutor.from_agent_and_tools(
         agent=agent, tools=tools, verbose=True, memory=st.session_state.memory
     )
+    return agent_chain,llm_chain
 
 
 option = st.sidebar.selectbox(
     'What do you want to ?',
-    ('Chat', 'Sumarization'))
+    ('Sumarization','Chat'))
 
 api = st.sidebar.text_input(
                     "Open api key",
@@ -161,7 +163,7 @@ api = st.sidebar.text_input(
                     help="https://platform.openai.com/account/api-keys",
                 )
 uploaded_file = st.sidebar.file_uploader(":blue[Upload]", type=["pdf"])
-
+global agent_chain,llm_chain
 if api:
     if option == "Sumarization":
     
@@ -186,9 +188,34 @@ if api:
                         index = FAISS.from_documents(pages, embeddings)
                     
                     tools,qa = tool(index)
-                    
+                    prefix=""""Have a conversation with a human, answering the human questions as best you can based on the context and memory available. \
+                        He may ask some not about the context but just answer the the question with a short sentence"""
+                    suffix="""Begin!"
+                    {chat_history}
+                    Question: {input}
+                    {agent_scratchpad}"""
+                    prompt = ZeroShotAgent.create_prompt(
+                        tools,
+                        prefix=prefix,
+                        suffix=suffix,
+                        input_variables=["input", "chat_history", "agent_scratchpad"],
+                    )
 
-                    process("Sumarized",tools)
+                    if "memory" not in st.session_state:
+                        st.session_state.memory = ConversationBufferMemory(memory_key ="chat_history")
+                            #Chain
+                            # ZeroShotAgent
+                    llm_chain = LLMChain(
+                        llm=OpenAI(
+                        temperature=0, openai_api_key=api, model_name="gpt-3.5-turbo"
+                        ),
+                        prompt=prompt,
+                    )
+                    agent = ZeroShotAgent(llm_chain=llm_chain, tools=tools, verbose=True) 
+                    agent_chain = AgentExecutor.from_agent_and_tools(
+                        agent=agent, tools=tools, verbose=True, memory=st.session_state.memory
+                    )
+                    # agent_chain,llm_chain = process("Sumarized",tools, qa)
 
 
                 container = st.container()
@@ -211,6 +238,7 @@ if api:
                     st.session_state.messages.append({"role": "user", "content": query})
                 
                     # response=llm_chain.memory.chat_memory.add_user_message(prompt)
+
                     if len(api) == 0:
                         response = f"""I will answer the question "{query}" if you give the API key"""
                         # st.write(response)
@@ -224,6 +252,7 @@ if api:
                     else:
                             
                         with st.spinner("It's indexing. .."):
+                            
                             response = agent_chain.run(query)
                         # st.write(response)
                         # #f"Echo: {prompt}" get_completion(template_string) #
@@ -232,8 +261,8 @@ if api:
                             st.markdown(response)
                         # Add assistant response to chat history
                         st.session_state.messages.append({"role": "assistant", "content": response})
-                # with st.expander("History/Memory"):
-                # st.write(st.session_state.memory)
+                        # with st.expander("History/Memory"):
+                        #     st.write(st.session_state.memory)
 
     elif option == "Chat":
 
