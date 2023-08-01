@@ -43,8 +43,8 @@ from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv())
 # openai.api_key = "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" 
 global openai_api_key
-openai_api_key = "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"   
-os.environ['OPENAI_API_KEY'] = "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"
+openai_api_key = "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"   
+os.environ['OPENAI_API_KEY'] = "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"
 
 @st.cache_data
 def parse_pdf (file: io.BytesIO)-> List[str]:
@@ -80,7 +80,7 @@ def text_to_docs(text: str) -> List [Document]:
     doc_chunks = []
     for doc in page_docs:
         text_splitter = RecursiveCharacterTextSplitter( 
-            chunk_size=2500, 
+            chunk_size=4000, 
             separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""],
             chunk_overlap=0,
         )
